@@ -21,7 +21,7 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<File[] | null>(null);
   const [minDuration, setMinDuration] = useState<number>(2);
 
-  const workerRef = useRef<Worker>();
+  const workerRef = useRef<Worker | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -74,24 +74,37 @@ export default function Home() {
     workerRef.current.postMessage({ files: fileDetails, filter, minDuration: duration });
   }, []);
 
-  const handleFileChange = useCallback((files: FileList) => {
-    const fileArray = Array.from(files);
-    
+  const handleFileChange = useCallback((files: File[]) => {
+    const fileArray = files.filter(file =>
+      file.name.toLowerCase().endsWith('watch-history.json') ||
+      file.name.toLowerCase().endsWith('subscriptions.csv') ||
+      file.name.toLowerCase().endsWith('watch-history.html')
+    );
+
+    if (fileArray.length === 0 && files.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "No relevant files found",
+        description: "We found files, but not 'watch-history.json'. Please ensure you selected the correct Google Takeout folder.",
+      });
+      return;
+    }
+
     setUploadedFiles(fileArray);
 
     const initialTimeFilter: TimeFilter = 'lastYear';
     const initialMinDuration = 2;
     setTimeFilter(initialTimeFilter);
     setMinDuration(initialMinDuration);
-    
+
     handleProcess(fileArray, initialTimeFilter, initialMinDuration);
 
   }, [handleProcess]);
-  
+
   const handleTimeFilterChange = (newFilter: TimeFilter) => {
     setTimeFilter(newFilter);
     if (uploadedFiles) {
-        handleProcess(uploadedFiles, newFilter, minDuration);
+      handleProcess(uploadedFiles, newFilter, minDuration);
     }
   }
 
@@ -148,9 +161,9 @@ export default function Home() {
               </AlertDescription>
             </Alert>
           ) : processedData ? (
-            <Dashboard 
-              data={processedData} 
-              timeFilter={timeFilter} 
+            <Dashboard
+              data={processedData}
+              timeFilter={timeFilter}
               onTimeFilterChange={handleTimeFilterChange}
               onDurationChange={handleDurationFilterChange}
               minDuration={minDuration}

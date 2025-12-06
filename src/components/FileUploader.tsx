@@ -4,7 +4,7 @@ import { useRef, useCallback } from 'react';
 import { UploadCloud } from 'lucide-react';
 
 type FileUploaderProps = {
-  onProcess: (files: FileList) => void;
+  onProcess: (files: File[]) => void;
 };
 
 export function FileUploader({ onProcess }: FileUploaderProps) {
@@ -12,7 +12,7 @@ export function FileUploader({ onProcess }: FileUploaderProps) {
 
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-      onProcess(event.target.files);
+      onProcess(Array.from(event.target.files));
     }
   }, [onProcess]);
 
@@ -20,13 +20,81 @@ export function FileUploader({ onProcess }: FileUploaderProps) {
     fileInputRef.current?.click();
   };
 
-  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+  /* eslint-disable @typescript-eslint/no-explicit-any */
+  const customGetAsEntry = (item: any) => {
+    if (item.getAsEntry) {
+      return item.getAsEntry();
+    } else if (item.webkitGetAsEntry) {
+      return item.webkitGetAsEntry();
+    }
+    return null;
+  };
+
+  const traverseFileTree = useCallback((item: any, path = ''): Promise<File[]> => {
+    return new Promise((resolve) => {
+      if (item.isFile) {
+        item.file((file: File) => {
+          // Basic security check: only allow files < 2GB if strictly needed, 
+          // here we just return the file. 
+          // We can also patch the path if needed but File object `name` is usually flat.
+          // Some browsers allow rewriting `webkitRelativePath`.
+          resolve([file]);
+        });
+      } else if (item.isDirectory) {
+        const dirReader = item.createReader();
+        const entries: any[] = [];
+
+        const readEntries = () => {
+          dirReader.readEntries((result: any[]) => {
+            if (result.length > 0) {
+              entries.push(...result);
+              readEntries(); // Continue reading
+            } else {
+              // Finished reading directory
+              const promises = entries.map(entry => traverseFileTree(entry, path + item.name + "/"));
+              Promise.all(promises).then(fileArrays => {
+                resolve(fileArrays.flat());
+              });
+            }
+          });
+        };
+        readEntries();
+      } else {
+        resolve([]);
+      }
+    });
+  }, []);
+
+  const handleDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
-    if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
-      onProcess(event.dataTransfer.files);
+
+    const items = event.dataTransfer.items;
+    if (items && items.length > 0) {
+      const promises: Promise<File[]>[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const entry = customGetAsEntry(item);
+        if (entry) {
+          promises.push(traverseFileTree(entry));
+        } else {
+          // Fallback for browsers that don't support getAsEntry (very rare nowadays for desktop)
+          const file = item.getAsFile();
+          if (file) promises.push(Promise.resolve([file]));
+        }
+      }
+
+      const fileArrays = await Promise.all(promises);
+      const allFiles = fileArrays.flat();
+
+      if (allFiles.length > 0) {
+        onProcess(allFiles);
+      }
+    } else if (event.dataTransfer.files && event.dataTransfer.files.length > 0) {
+      // Fallback for simple file drop if items API fails or is empty logic
+      onProcess(Array.from(event.dataTransfer.files));
     }
-  }, [onProcess]);
+  }, [onProcess, traverseFileTree]);
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();

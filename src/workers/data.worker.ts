@@ -49,7 +49,7 @@ const getFilterDateRange = (filter: TimeFilter) => {
 
 function parseWatchHistory(fileContent: string, filter: TimeFilter, minDuration: number) {
   postProgress(10, 'Parsing watch history...');
-  
+
   if (fileContent.trim().startsWith('<')) {
     throw new Error("Invalid file format. Please ensure you export your watch history as JSON from Google Takeout, not HTML.");
   }
@@ -60,17 +60,17 @@ function parseWatchHistory(fileContent: string, filter: TimeFilter, minDuration:
   } catch (e) {
     throw new Error("Failed to parse the JSON file. The file may be corrupt or in the wrong format. Please ensure it's the watch-history.json file from Google Takeout.");
   }
-  
+
   const filterInterval = getFilterDateRange(filter);
 
   const validItems = history
-    .map(item => ({...item, date: parseISO(item.time)}))
+    .map(item => ({ ...item, date: parseISO(item.time) }))
     .filter(item =>
       item.header === 'YouTube' &&
       item.titleUrl &&
       isWithinInterval(item.date, filterInterval)
     )
-    .sort((a, b) => compareAsc(a.date, b.date)); 
+    .sort((a, b) => compareAsc(a.date, b.date));
   postProgress(20, `Found ${validItems.length} watch history items for the selected period. Calculating durations...`);
 
   let totalMinutes = 0;
@@ -79,7 +79,7 @@ function parseWatchHistory(fileContent: string, filter: TimeFilter, minDuration:
   const dailyViewCounts: Record<string, number> = {};
   const dailyWatchDataMap: Record<string, number> = {};
   const videoViewCounts: Record<string, { title: string; url: string, views: number }> = {};
-  
+
   let processedItems = [];
 
   for (let i = 0; i < validItems.length - 1; i++) {
@@ -104,7 +104,7 @@ function parseWatchHistory(fileContent: string, filter: TimeFilter, minDuration:
 
     const channel = getChannelInfo(current);
     const channelKey = channel.id || channel.name;
-    
+
     if (!channelWatchTime[channelKey]) {
       channelWatchTime[channelKey] = { minutes: 0, id: channel.id, name: channel.name, url: channel.url };
     }
@@ -125,14 +125,14 @@ function parseWatchHistory(fileContent: string, filter: TimeFilter, minDuration:
     dailyViewCounts[dayKey] = (dailyViewCounts[dayKey] || 0) + 1;
     dailyWatchDataMap[dayKey] = (dailyWatchDataMap[dayKey] || 0) + durationMinutes;
   }
-  
+
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  
+
   const totalViewsPerDay = Array(7).fill(0);
   hourlyActivity.forEach((dayHours, dayIndex) => {
     totalViewsPerDay[dayIndex] = dayHours.reduce((sum, views) => sum + views, 0);
   });
-  
+
   let favoriteDayIndex = 0;
   totalViewsPerDay.forEach((views, index) => {
     if (views > totalViewsPerDay[favoriteDayIndex]) {
@@ -157,27 +157,27 @@ function parseWatchHistory(fileContent: string, filter: TimeFilter, minDuration:
   const topChannels = Object.values(channelWatchTime)
     .sort((a, b) => b.minutes - a.minutes)
     .slice(0, 10);
-  
+
   const topVideos: TopVideo[] = Object.values(videoViewCounts)
-    .sort((a,b) => b.views - a.views)
+    .sort((a, b) => b.views - a.views)
     .slice(0, 10);
 
-  const mostActiveDateEntry = Object.entries(dailyViewCounts).sort(([,a], [,b]) => b - a)[0];
-  
+  const mostActiveDateEntry = Object.entries(dailyViewCounts).sort(([, a], [, b]) => b - a)[0];
+
   const advancedStats = {
-      avgVideosPerDay: processedItems.length / (Object.keys(dailyViewCounts).length || 1),
-      mostActiveDate: {
-          date: mostActiveDateEntry ? mostActiveDateEntry[0] : 'N/A',
-          views: mostActiveDateEntry ? mostActiveDateEntry[1] : 0
-      },
-      favoriteDay: dayNames[favoriteDayIndex],
-      favoriteHour: favoriteHourIndex,
+    avgVideosPerDay: processedItems.length / (Object.keys(dailyViewCounts).length || 1),
+    mostActiveDate: {
+      date: mostActiveDateEntry ? mostActiveDateEntry[0] : 'N/A',
+      views: mostActiveDateEntry ? mostActiveDateEntry[1] : 0
+    },
+    favoriteDay: dayNames[favoriteDayIndex],
+    favoriteHour: favoriteHourIndex,
   };
-  
+
   const dailyWatchData = Object.entries(dailyWatchDataMap)
-      .map(([date, minutes]) => ({ date, minutes: Math.round(minutes) }))
-      .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      
+    .map(([date, minutes]) => ({ date, minutes: Math.round(minutes) }))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
   return {
     totalMinutes: Math.round(totalMinutes),
     totalVideos: processedItems.length,
@@ -195,11 +195,11 @@ function parseSubscriptions(fileContent: string) {
   const subscriptions = new Map<string, string>();
   parsed.data.forEach(row => {
     if (row['Channel Url']) {
-        const idMatch = row['Channel Url'].match(/channel\/(UC[\w-]{22})/);
-        const id = idMatch ? idMatch[1] : null; // Only store valid IDs
-        if (id) {
-            subscriptions.set(id, row['Channel Title']);
-        }
+      const idMatch = row['Channel Url'].match(/channel\/(UC[\w-]{22})/);
+      const id = idMatch ? idMatch[1] : null; // Only store valid IDs
+      if (id) {
+        subscriptions.set(id, row['Channel Title']);
+      }
     }
   });
   return { subscriptions };
@@ -216,7 +216,7 @@ function crossReferenceData(
   watchHistory.forEach(item => {
     const channelInfo = getChannelInfo(item);
     if (channelInfo.id) {
-        watchedChannelIds.add(channelInfo.id);
+      watchedChannelIds.add(channelInfo.id);
     }
   });
 
@@ -236,22 +236,22 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
   try {
     const { files, filter, minDuration } = event.data;
 
-    const historyFileWrapper = files.find(f => f.name.endsWith('watch-history.json'));
-    const subsFileWrapper = files.find(f => f.name.endsWith('subscriptions.csv'));
-    
+    const historyFileWrapper = files.find(f => f.name.toLowerCase().endsWith('watch-history.json'));
+    const subsFileWrapper = files.find(f => f.name.toLowerCase().endsWith('subscriptions.csv'));
+
     if (!historyFileWrapper) {
       // Check for common mistake of uploading HTML file
-      if (files.some(f => f.name.endsWith('watch-history.html'))) {
+      if (files.some(f => f.name.toLowerCase().endsWith('watch-history.html'))) {
         throw new Error("HTML file detected. Please go back to Google Takeout and export your 'history' data as JSON, not HTML.");
       }
       throw new Error('Could not find `watch-history.json`. Please make sure you have selected the entire `Takeout` folder.');
     }
-    
+
     const historyContent = await historyFileWrapper.content.text();
     const historyData = parseWatchHistory(historyContent, filter, minDuration);
     postProgress(60, 'Watch history processed.');
-    
-    let crossRefData = { ghostChannels: [] };
+
+    let crossRefData: { ghostChannels: { name: string, id: string }[] } = { ghostChannels: [] };
     if (subsFileWrapper) {
       const subsContent = await subsFileWrapper.content.text();
       const subsData = parseSubscriptions(subsContent);
@@ -266,7 +266,7 @@ self.onmessage = async (event: MessageEvent<WorkerInput>) => {
       ...crossRefData,
       channelAvatars: {}, // Keep this empty, will be handled by client
     };
-    
+
     // We don't need to send these large items to the main thread
     // @ts-ignore
     delete finalData.watchHistoryItems;
