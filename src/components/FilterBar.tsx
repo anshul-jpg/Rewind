@@ -18,8 +18,8 @@ const filters: { label: string, value: TimeFilter }[] = [
 
 export function FilterBar({ currentFilter, onFilterChange }: FilterBarProps) {
     return (
-        <div className="flex items-center justify-center bg-card p-2 rounded-lg border shadow-sm mb-6">
-            <div className="flex space-x-2 bg-muted p-1 rounded-md">
+        <div className="flex items-center w-full overflow-x-auto bg-card p-2 rounded-lg border shadow-sm mb-6 justify-start sm:justify-center">
+            <div className="flex space-x-2 bg-muted p-1 rounded-md min-w-max">
                 {filters.map(filter => (
                     <Button
                         key={filter.value}
